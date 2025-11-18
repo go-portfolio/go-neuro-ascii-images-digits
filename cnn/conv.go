@@ -51,3 +51,61 @@ func Conv2D(input [][]float64, kernels [][][]float64) [][][]float64 {
     // Возвращаем результат работы свёртки (выходное изображение для каждого фильтра)
     return out
 }
+
+// BackpropConv2D вычисляет:
+// 1) dInput  — градиент по входу
+// 2) dKernels — градиент по фильтрам
+func BackpropConv2D(input [][]float64, kernels [][][]float64, dOut [][][]float64) ([][]float64, [][][]float64) {
+
+	h := len(input)
+	w := len(input[0])
+	kN := len(kernels)
+	kH := len(kernels[0])
+	kW := len(kernels[0][0])
+
+	outH := h - kH + 1
+	outW := w - kW + 1
+
+	// dInput
+	dInput := make([][]float64, h)
+	for i := range dInput {
+		dInput[i] = make([]float64, w)
+	}
+
+	// dKernels
+	dKernels := make([][][]float64, kN)
+	for k := range dKernels {
+		dKernels[k] = make([][]float64, kH)
+		for i := 0; i < kH; i++ {
+			dKernels[k][i] = make([]float64, kW)
+		}
+	}
+
+	// ---- backprop ----
+	for f := 0; f < kN; f++ {
+		for y := 0; y < outH; y++ {
+			for x := 0; x < outW; x++ {
+
+				grad := dOut[f][y][x]
+
+				// градиент по весам
+				for i := 0; i < kH; i++ {
+					for j := 0; j < kW; j++ {
+						dKernels[f][i][j] += input[y+i][x+j] * grad
+					}
+				}
+
+				// градиент по входу
+				for i := 0; i < kH; i++ {
+					for j := 0; j < kW; j++ {
+						dInput[y+i][x+j] += kernels[f][i][j] * grad
+					}
+				}
+
+			}
+		}
+	}
+
+	return dInput, dKernels
+}
+
