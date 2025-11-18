@@ -10,26 +10,6 @@ import (
 	"github.com/go-portfolio/go-cnn/internal/model"
 )
 
-// Печать изображения или карты признаков в ASCII
-func PrintFeatureMap(map2D [][]float64, title string) {
-	fmt.Println(title)
-	for y := 0; y < len(map2D); y++ {
-		for x := 0; x < len(map2D[0]); x++ {
-			v := map2D[y][x]
-			if v > 0.7 {
-				fmt.Print("#")
-			} else if v > 0.4 {
-				fmt.Print("*")
-			} else if v > 0.1 {
-				fmt.Print("+")
-			} else {
-				fmt.Print(".")
-			}
-		}
-		fmt.Println()
-	}
-	fmt.Println()
-}
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -64,7 +44,7 @@ func main() {
 		input := data.RandomImage28x28(label)
 
 		fmt.Println("Original Image:")
-		PrintFeatureMap(input, "")
+		data.PrintFeatureMap(input, "")
 
 		// --- FORWARD ---
 		conv := cnn.Conv2D(input, kernels)
@@ -76,8 +56,8 @@ func main() {
 
 		// Печать карт признаков первых 2 фильтров
 		for f := 0; f < 2; f++ {
-			PrintFeatureMap(act[f], fmt.Sprintf("Feature Map Filter %d after ReLU", f))
-			PrintFeatureMap(pooled[f], fmt.Sprintf("Pooled Feature Map Filter %d", f))
+			data.PrintFeatureMap(act[f], fmt.Sprintf("Feature Map Filter %d after ReLU", f))
+			data.PrintFeatureMap(pooled[f], fmt.Sprintf("Pooled Feature Map Filter %d", f))
 		}
 
 		// Предсказанный класс
