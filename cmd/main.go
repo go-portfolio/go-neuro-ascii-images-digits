@@ -62,8 +62,9 @@ func main() {
 	learningRate := 0.01
 
 	for epoch := 0; epoch < 3; epoch++ { // сокращаем для наглядности
-		input := data.RandomImage28x28()
-		label := rand.Intn(10)
+		label := rand.Intn(10)          // случайная цифра 0..9
+		input := data.RandomImage28x28(label)
+
 
 		fmt.Println("Original Image:")
 		PrintFeatureMap(input, "")
