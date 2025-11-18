@@ -1,15 +1,51 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/go-portfolio/go-cnn/cnn"
 	"github.com/go-portfolio/go-cnn/internal/data"
 )
 
-// Функция для печати изображения или карты признаков в ASCII
+// CNNModel хранит веса сети для сохранения/загрузки
+type CNNModel struct {
+	Kernels [][][]float64 `json:"kernels"`
+	W       [][]float64   `json:"W"`
+	B       []float64     `json:"b"`
+}
+
+// Сохранить модель в JSON
+func SaveModel(path string, kernels [][][]float64, W [][]float64, b []float64) error {
+	model := CNNModel{Kernels: kernels, W: W, B: b}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	encoder := json.NewEncoder(f)
+	return encoder.Encode(model)
+}
+
+// Загрузить модель из JSON
+func LoadModel(path string) ([][][]float64, [][]float64, []float64, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer f.Close()
+	var model CNNModel
+	decoder := json.NewDecoder(f)
+	if err := decoder.Decode(&model); err != nil {
+		return nil, nil, nil, err
+	}
+	return model.Kernels, model.W, model.B, nil
+}
+
+// Печать изображения или карты признаков в ASCII
 func PrintFeatureMap(map2D [][]float64, title string) {
 	fmt.Println(title)
 	for y := 0; y < len(map2D); y++ {
@@ -33,10 +69,9 @@ func PrintFeatureMap(map2D [][]float64, title string) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	// Классы цифр
 	classes := []string{"Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"}
 
-	// Инициализация Conv фильтров 8x3x3
+	// --- Инициализация CNN ---
 	kernels := make([][][]float64, 8)
 	for k := range kernels {
 		kernels[k] = make([][]float64, 3)
@@ -47,8 +82,6 @@ func main() {
 			}
 		}
 	}
-
-	// Инициализация Dense 1352->10
 	W := make([][]float64, 10)
 	b := make([]float64, 10)
 	for o := 0; o < 10; o++ {
@@ -58,13 +91,12 @@ func main() {
 		}
 		b[o] = 0
 	}
-
 	learningRate := 0.01
 
-	for epoch := 0; epoch < 3; epoch++ { // сокращаем для наглядности
-		label := rand.Intn(10)          // случайная цифра 0..9
+	// --- TRAINING ---
+	for epoch := 0; epoch < 5; epoch++ {
+		label := rand.Intn(10)
 		input := data.RandomImage28x28(label)
-
 
 		fmt.Println("Original Image:")
 		PrintFeatureMap(input, "")
@@ -92,25 +124,14 @@ func main() {
 				predClass = i
 			}
 		}
-
 		correct := "✗"
 		if predClass == label {
 			correct = "✓"
 		}
 
 		loss := cnn.CrossEntropy(pred, label)
-
 		fmt.Printf("Epoch %d  Loss=%.6f  Label=%s  Pred=%s (%.2f%%) %s\n",
 			epoch, loss, classes[label], classes[predClass], maxProb*100, correct)
-
-		fmt.Print("Probabilities: [")
-		for i, p := range pred {
-			fmt.Printf("%s: %.2f%%", classes[i], p*100)
-			if i < len(pred)-1 {
-				fmt.Print(", ")
-			}
-		}
-		fmt.Println("]")
 
 		// --- BACKPROP ---
 		gradLogits := make([]float64, len(pred))
@@ -129,9 +150,7 @@ func main() {
 
 		dPool := cnn.Unflatten(dFlat, len(pooled), len(pooled[0]), len(pooled[0][0]))
 		dAct := cnn.MaxPool2x2Backward(dPool, act)
-		dInput, dKernels := cnn.BackpropConv2D(input, kernels, dAct)
-
-		_ = dInput
+		_, dKernels := cnn.BackpropConv2D(input, kernels, dAct)
 
 		for f := range kernels {
 			for i := range kernels[f] {
@@ -143,4 +162,46 @@ func main() {
 
 		fmt.Println("-------------------------------------------------------------")
 	}
+
+	// --- SAVE MODEL ---
+	err := SaveModel("cnn_model.json", kernels, W, b)
+	if err != nil {
+		fmt.Println("Error saving model:", err)
+		return
+	}
+	fmt.Println("Model saved to cnn_model.json")
+
+	// --- VALIDATION / TEST ---
+	fmt.Println("\n=== Validation on new images ===")
+	total := 10
+	correctCount := 0
+	for i := 0; i < total; i++ {
+		label := rand.Intn(10)
+		input := data.RandomImage28x28(label)
+
+		// forward with loaded weights
+		conv := cnn.Conv2D(input, kernels)
+		act := cnn.ReLU(conv)
+		pooled := cnn.MaxPool2x2(act)
+		flat := cnn.Flatten(pooled)
+		logits := cnn.Dense(flat, W, b)
+		pred := cnn.Softmax(logits)
+
+		maxProb := 0.0
+		predClass := 0
+		for i, p := range pred {
+			if p > maxProb {
+				maxProb = p
+				predClass = i
+			}
+		}
+
+		if predClass == label {
+			correctCount++
+		}
+
+		fmt.Printf("Label=%s  Pred=%s (%.2f%%)\n", classes[label], classes[predClass], maxProb*100)
+	}
+
+	fmt.Printf("Validation Accuracy: %.2f%%\n", float64(correctCount)/float64(total)*100)
 }
