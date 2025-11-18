@@ -5,11 +5,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/go-portfolio/go-cnn/cnn"
+	"github.com/go-portfolio/go-cnn/internal/cnn"
 	"github.com/go-portfolio/go-cnn/internal/data"
 	"github.com/go-portfolio/go-cnn/internal/model"
 )
-
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
