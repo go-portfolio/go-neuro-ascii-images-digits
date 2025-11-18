@@ -1,49 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/go-portfolio/go-cnn/cnn"
 	"github.com/go-portfolio/go-cnn/internal/data"
+	"github.com/go-portfolio/go-cnn/internal/model"
 )
-
-// CNNModel хранит веса сети для сохранения/загрузки
-type CNNModel struct {
-	Kernels [][][]float64 `json:"kernels"`
-	W       [][]float64   `json:"W"`
-	B       []float64     `json:"b"`
-}
-
-// Сохранить модель в JSON
-func SaveModel(path string, kernels [][][]float64, W [][]float64, b []float64) error {
-	model := CNNModel{Kernels: kernels, W: W, B: b}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	encoder := json.NewEncoder(f)
-	return encoder.Encode(model)
-}
-
-// Загрузить модель из JSON
-func LoadModel(path string) ([][][]float64, [][]float64, []float64, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer f.Close()
-	var model CNNModel
-	decoder := json.NewDecoder(f)
-	if err := decoder.Decode(&model); err != nil {
-		return nil, nil, nil, err
-	}
-	return model.Kernels, model.W, model.B, nil
-}
 
 // Печать изображения или карты признаков в ASCII
 func PrintFeatureMap(map2D [][]float64, title string) {
@@ -164,7 +129,7 @@ func main() {
 	}
 
 	// --- SAVE MODEL ---
-	err := SaveModel("cnn_model.json", kernels, W, b)
+	err := model.SaveModel("cnn_model.json", kernels, W, b)
 	if err != nil {
 		fmt.Println("Error saving model:", err)
 		return

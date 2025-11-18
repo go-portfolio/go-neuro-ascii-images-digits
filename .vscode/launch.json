@@ -1,27 +1,35 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    {
-      "name": "Запуск нейросети (main.go)",
-      "type": "go",
-      "request": "launch",
-      "mode": "debug",
-      "program": "${workspaceFolder}/cmd/main.go",
-      "cwd": "${workspaceFolder}",
-      "env": {},
-      "args": []
-    },
-    {
-      "name": "Запуск с флагом --debug",
-      "type": "go",
-      "request": "launch",
-      "mode": "debug",
-      "program": "${workspaceFolder}/cmd/main.go",
-      "cwd": "${workspaceFolder}",
-      "args": ["--debug"]
-    }
+        {
+            "name": "Запуск нейросети (main.go)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/train/main.go",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": []
+        },
+        {
+            "name": "Запуск с флагом --debug",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/train/main.go",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": ["--debug"]
+        },
+        {
+            "name": "Тестирование модели (test.go)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/test/test.go",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": []
+        }
     ]
 }
