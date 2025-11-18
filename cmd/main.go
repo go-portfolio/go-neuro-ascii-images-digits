@@ -9,13 +9,34 @@ import (
 	"github.com/go-portfolio/go-cnn/internal/data"
 )
 
-func main() {
+// Функция для печати изображения или карты признаков в ASCII
+func PrintFeatureMap(map2D [][]float64, title string) {
+	fmt.Println(title)
+	for y := 0; y < len(map2D); y++ {
+		for x := 0; x < len(map2D[0]); x++ {
+			v := map2D[y][x]
+			if v > 0.7 {
+				fmt.Print("#")
+			} else if v > 0.4 {
+				fmt.Print("*")
+			} else if v > 0.1 {
+				fmt.Print("+")
+			} else {
+				fmt.Print(".")
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+}
 
+func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	// -------------------------------------------------------------
-	// 1) Инициализация свёрточных фильтров 8×3×3
-	// -------------------------------------------------------------
+	// Классы цифр
+	classes := []string{"Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"}
+
+	// Инициализация Conv фильтров 8x3x3
 	kernels := make([][][]float64, 8)
 	for k := range kernels {
 		kernels[k] = make([][]float64, 3)
@@ -27,12 +48,9 @@ func main() {
 		}
 	}
 
-	// -------------------------------------------------------------
-	// 2) Инициализация Dense весов: 1352 → 10
-	// -------------------------------------------------------------
-	W := make([][]float64, 10) // 10×1352
+	// Инициализация Dense 1352->10
+	W := make([][]float64, 10)
 	b := make([]float64, 10)
-
 	for o := 0; o < 10; o++ {
 		W[o] = make([]float64, 1352)
 		for i := 0; i < 1352; i++ {
@@ -43,51 +61,64 @@ func main() {
 
 	learningRate := 0.01
 
-	// -------------------------------------------------------------
-	// 3) Тренировка
-	// -------------------------------------------------------------
-	for epoch := 0; epoch < 10; epoch++ {
-
-		// Псевдо-MNIST картинка
+	for epoch := 0; epoch < 3; epoch++ { // сокращаем для наглядности
 		input := data.RandomImage28x28()
-
 		label := rand.Intn(10)
 
-		// -------------------------------
-		// FORWARD
-		// -------------------------------
-		conv := cnn.Conv2D(input, kernels) // (8×26×26)
+		fmt.Println("Original Image:")
+		PrintFeatureMap(input, "")
 
-		act := cnn.ReLU(conv) // (8×26×26)
-
-		pooled := cnn.MaxPool2x2(act) // (8×13×13)
-
-		flat := cnn.Flatten(pooled) // 1352
-
-		logits := cnn.Dense(flat, W, b) // 10
-
+		// --- FORWARD ---
+		conv := cnn.Conv2D(input, kernels)
+		act := cnn.ReLU(conv)
+		pooled := cnn.MaxPool2x2(act)
+		flat := cnn.Flatten(pooled)
+		logits := cnn.Dense(flat, W, b)
 		pred := cnn.Softmax(logits)
+
+		// Печать карт признаков первых 2 фильтров
+		for f := 0; f < 2; f++ {
+			PrintFeatureMap(act[f], fmt.Sprintf("Feature Map Filter %d after ReLU", f))
+			PrintFeatureMap(pooled[f], fmt.Sprintf("Pooled Feature Map Filter %d", f))
+		}
+
+		// Предсказанный класс
+		maxProb := 0.0
+		predClass := 0
+		for i, p := range pred {
+			if p > maxProb {
+				maxProb = p
+				predClass = i
+			}
+		}
+
+		correct := "✗"
+		if predClass == label {
+			correct = "✓"
+		}
 
 		loss := cnn.CrossEntropy(pred, label)
 
-		fmt.Printf("Epoch %d  Loss=%f\n", epoch, loss)
+		fmt.Printf("Epoch %d  Loss=%.6f  Label=%s  Pred=%s (%.2f%%) %s\n",
+			epoch, loss, classes[label], classes[predClass], maxProb*100, correct)
 
-		// -------------------------------
-		// BACKPROP — Softmax + CE
-		// -------------------------------
+		fmt.Print("Probabilities: [")
+		for i, p := range pred {
+			fmt.Printf("%s: %.2f%%", classes[i], p*100)
+			if i < len(pred)-1 {
+				fmt.Print(", ")
+			}
+		}
+		fmt.Println("]")
+
+		// --- BACKPROP ---
 		gradLogits := make([]float64, len(pred))
 		for i := range pred {
 			gradLogits[i] = pred[i]
 		}
 		gradLogits[label] -= 1
 
-		// -------------------------------
-		// BACKPROP — Dense
-		// -------------------------------
-		// BACKPROP Dense
 		dW, db, dFlat := cnn.DenseBackward(gradLogits, flat, W)
-
-		// Обновляем Dense веса
 		for o := 0; o < 10; o++ {
 			for i := 0; i < len(flat); i++ {
 				W[o][i] -= learningRate * dW[o][i]
@@ -95,23 +126,12 @@ func main() {
 			b[o] -= learningRate * db[o]
 		}
 
-		// Unflatten → dPool
 		dPool := cnn.Unflatten(dFlat, len(pooled), len(pooled[0]), len(pooled[0][0]))
-
-		// -------------------------------
-		// BACKPROP — MaxPool
-		// -------------------------------
 		dAct := cnn.MaxPool2x2Backward(dPool, act)
-
-
-		// -------------------------------
-		// BACKPROP — Conv2D
-		// -------------------------------
 		dInput, dKernels := cnn.BackpropConv2D(input, kernels, dAct)
 
-		_ = dInput // (вход не обновляется)
+		_ = dInput
 
-		// обновить фильтры
 		for f := range kernels {
 			for i := range kernels[f] {
 				for j := range kernels[f][i] {
@@ -120,8 +140,6 @@ func main() {
 			}
 		}
 
-		// Вывод некоторых градиентов для контроля
-		fmt.Printf("   ConvGrad[0][0][0]=%.6f  ConvGrad[0][1][1]=%.6f  ConvGrad[1][0][0]=%.6f\n",
-			dKernels[0][0][0], dKernels[0][1][1], dKernels[1][0][0])
+		fmt.Println("-------------------------------------------------------------")
 	}
 }
